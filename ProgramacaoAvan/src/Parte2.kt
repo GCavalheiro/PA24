@@ -28,7 +28,7 @@ annotation class XmlExclude
 
 // Definindo a classe para representar o ComponenteAvaliacao
 data class ComponenteAvaliacao(
-    @XmlElement
+    @XmlAttribute
     @XmlName("nome")
     val nome: String,
 
@@ -49,7 +49,7 @@ data class FUC(
     @XmlName("nome")
     val nome: String,
 
-    @XmlAttribute
+    @XmlElement
     @XmlName("ects")
     val ects: Double,
 
@@ -85,62 +85,74 @@ class FUCAdapter : Adapter {
     }
 }
 
-// Função para converter um objeto para XML
-fun Any.toXml(): String {
+// Função para converter um objeto para XML com indentação
+fun Any.toXml(indentLevel: Int = 0): String {
+    val indent = "    ".repeat(indentLevel)
+    val nestedIndent = "    ".repeat(indentLevel + 1)
     val clazz = this::class
     val properties = clazz.memberProperties
 
-    val xmlBuilder = StringBuilder("<${clazz.simpleName?.lowercase()}")
+    val xmlBuilder = StringBuilder()
 
-    // Verifica se há adaptador associado à classe
-    clazz.annotations.find { it.annotationClass == XmlAdapter::class }?.let { adapterAnnotation ->
-        val adapter = (adapterAnnotation as XmlAdapter).adapter.java.newInstance() as Adapter
-        adapter.adapt(this)
-    }
-
-    // Adiciona propriedades como atributos ou elementos conforme anotações
+    // Processa a tag de abertura com atributos
+    xmlBuilder.append("$indent<${clazz.simpleName?.lowercase()}")
     properties.forEach { prop ->
         if (prop.findAnnotation<XmlExclude>() == null) {
             val propName: String = prop.findAnnotation<XmlName>()?.name ?: prop.name
             val propValue: Any? = prop.getter.call(this)
 
-            if (propValue != null && propValue !is List<*>) {
-                if (prop.findAnnotation<XmlAttribute>() != null) {
-                    val attributeValue: String = prop.findAnnotation<XmlString>()?.let { xmlStringAnnotation ->
-                        val transformer = xmlStringAnnotation.transformer.java.newInstance() as XmlTransformer
-                        transformer.transform(propValue.toString())
-                    } ?: propValue.toString()
-                    xmlBuilder.append(" $propName=\"$attributeValue\"")
-                } else if (prop.findAnnotation<XmlElement>() != null) {
-                    xmlBuilder.append(">\n<$propName>$propValue</$propName>\n")
+            if (propValue != null && prop.findAnnotation<XmlAttribute>() != null) {
+                val attributeValue: String = prop.findAnnotation<XmlString>()?.let { xmlStringAnnotation ->
+                    val transformer = xmlStringAnnotation.transformer.java.newInstance() as XmlTransformer
+                    transformer.transform(propValue.toString())
+                } ?: propValue.toString()
+                xmlBuilder.append(" $propName=\"$attributeValue\"")
+            }
+        }
+    }
+    xmlBuilder.append(">\n")
+
+    // Ordem dos elementos
+    val elementOrder = listOf("nome", "ects", "avaliacao")
+
+    elementOrder.forEach { elementName ->
+        properties.forEach { prop ->
+            if (prop.findAnnotation<XmlExclude>() == null) {
+                val propName: String = prop.findAnnotation<XmlName>()?.name ?: prop.name
+                val propValue: Any? = prop.getter.call(this)
+
+                if (propValue != null && prop.findAnnotation<XmlElement>() != null && propName == elementName) {
+                    if (propValue is List<*>) {
+                        xmlBuilder.append("$nestedIndent<$propName>\n")
+                        propValue.forEach { item ->
+                            xmlBuilder.append("$nestedIndent    <componente")
+                            item!!::class.memberProperties.forEach { nestedProp ->
+                                val nestedPropName: String = nestedProp.findAnnotation<XmlName>()?.name ?: nestedProp.name
+                                val nestedPropValue: String = nestedProp.findAnnotation<XmlString>()?.let { xmlStringAnnotation ->
+                                    val transformer = xmlStringAnnotation.transformer.java.newInstance() as XmlTransformer
+                                    transformer.transform(nestedProp.getter.call(item).toString())
+                                } ?: nestedProp.getter.call(item).toString()
+                                xmlBuilder.append(" $nestedPropName=\"$nestedPropValue\"")
+                            }
+                            xmlBuilder.append("/>\n")
+                        }
+                        xmlBuilder.append("$nestedIndent</$propName>\n")
+                    } else {
+                        xmlBuilder.append("$nestedIndent<$propName>$propValue</$propName>\n")
+                    }
                 }
             }
         }
     }
 
-    // Processa listas como elementos aninhados
-    properties.forEach { prop ->
-        val propValue: Any? = prop.getter.call(this)
-
-        if (propValue is List<*> && propValue.isNotEmpty() && propValue.all { it is ComponenteAvaliacao }) {
-            xmlBuilder.append("<${prop.name}>\n")
-            propValue.forEach { item ->
-                xmlBuilder.append("<${item!!::class.simpleName?.lowercase()}>\n")
-                item::class.memberProperties.forEach { nestedProp ->
-                    val nestedPropName: String = nestedProp.findAnnotation<XmlName>()?.name ?: nestedProp.name
-                    val nestedPropValue: String = nestedProp.findAnnotation<XmlString>()?.let { xmlStringAnnotation ->
-                        val transformer = xmlStringAnnotation.transformer.java.newInstance() as XmlTransformer
-                        transformer.transform(nestedProp.getter.call(item).toString())
-                    } ?: nestedProp.getter.call(item).toString()
-                    xmlBuilder.append("<$nestedPropName>$nestedPropValue</$nestedPropName>\n")
-                }
-                xmlBuilder.append("</${item::class.simpleName?.lowercase()}>\n")
-            }
-            xmlBuilder.append("</${prop.name}>\n")
-        }
+    xmlBuilder.append("$indent</${clazz.simpleName?.lowercase()}>\n")
+    return xmlBuilder.toString()
+}
+fun List<Any>.toXml(indentLevel: Int = 0): String {
+    val xmlBuilder = StringBuilder()
+    this.forEach { item ->
+        xmlBuilder.append(item.toXml(indentLevel))
     }
-
-    xmlBuilder.append("</${clazz.simpleName?.lowercase()}>")
     return xmlBuilder.toString()
 }
 
