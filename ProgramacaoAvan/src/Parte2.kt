@@ -158,13 +158,13 @@ class FUCAdapter : Adapter {
 fun Any.toXml(indentLevel: Int = 0): String {
     val indent = "    ".repeat(indentLevel)
     val nestedIndent = "    ".repeat(indentLevel + 1)
-    val clazz = this::class
-    val prop = clazz.memberProperties
+    val c = this::class
+    val prop = c.memberProperties
 
     val xmlBuilder = StringBuilder()
 
 
-    xmlBuilder.append("$indent<${clazz.simpleName?.lowercase()}")
+    xmlBuilder.append("$indent<${c.simpleName?.lowercase()}")
     prop.forEach { prop ->
         if (prop.findAnnotation<XmlExclude>() == null) {
             val propName: String = prop.findAnnotation<XmlName>()?.name ?: prop.name
@@ -214,7 +214,7 @@ fun Any.toXml(indentLevel: Int = 0): String {
         }
     }
 
-    xmlBuilder.append("$indent</${clazz.simpleName?.lowercase()}>\n")
+    xmlBuilder.append("$indent</${c.simpleName?.lowercase()}>\n")
     return xmlBuilder.toString()
 }
 fun List<Any>.toXml(indentLevel: Int = 0): String {
