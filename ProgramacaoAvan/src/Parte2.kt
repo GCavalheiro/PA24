@@ -2,27 +2,26 @@ import kotlin.reflect.KClass
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.memberProperties
 
-// Anotação para personalizar o nome do identificador no XML
+
 @Target(AnnotationTarget.PROPERTY)
 annotation class XmlName(val name: String)
 
-// Anotação para personalizar o texto inserido no XML
+
 @Target(AnnotationTarget.PROPERTY)
 annotation class XmlString(val transformer: KClass<out XmlTransformer>)
 
-// Anotação para associar um adaptador para alterações livres na entidade XML
+
 @Target(AnnotationTarget.CLASS)
 annotation class XmlAdapter(val adapter: KClass<out Adapter>)
 
-// Anotação para definir propriedades como atributos no XML
+
 @Target(AnnotationTarget.PROPERTY)
 annotation class XmlAttribute
 
-// Anotação para definir propriedades como elementos aninhados no XML
 @Target(AnnotationTarget.PROPERTY)
 annotation class XmlElement
 
-// Anotação para excluir atributos do XML
+
 @Target(AnnotationTarget.PROPERTY)
 annotation class XmlExclude
 
@@ -151,7 +150,7 @@ class AddPercentage : XmlTransformer {
 // Classe para adaptar a ordem dos atributos XML
 class FUCAdapter : Adapter {
     override fun adapt(entity: Any) {
-        // Implementação específica para adaptar o FUC, se necessário
+
     }
 }
 
@@ -164,7 +163,7 @@ fun Any.toXml(indentLevel: Int = 0): String {
 
     val xmlBuilder = StringBuilder()
 
-    // Processa a tag de abertura com atributos
+
     xmlBuilder.append("$indent<${clazz.simpleName?.lowercase()}")
     prop.forEach { prop ->
         if (prop.findAnnotation<XmlExclude>() == null) {
