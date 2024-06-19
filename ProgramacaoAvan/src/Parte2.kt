@@ -26,31 +26,71 @@ annotation class XmlElement
 @Target(AnnotationTarget.PROPERTY)
 annotation class XmlExclude
 
+@Retention(AnnotationRetention.RUNTIME)
+@Target(AnnotationTarget.FIELD, AnnotationTarget.PROPERTY)
+annotation class NotBlank
+
+@Retention(AnnotationRetention.RUNTIME)
+@Target(AnnotationTarget.FIELD, AnnotationTarget.PROPERTY)
+annotation class PositiveNumber
+
+@Retention(AnnotationRetention.RUNTIME)
+@Target(AnnotationTarget.FIELD, AnnotationTarget.PROPERTY)
+annotation class NotEmptyList
+
+
 // Definindo a classe para representar o ComponenteAvaliacao
 data class ComponenteAvaliacao(
     @XmlAttribute
     @XmlName("nome")
+    @NotBlank
     val nome: String,
 
     @XmlAttribute
     @XmlName("peso")
     @XmlString(AddPercentage::class)
+    @PositiveNumber
     val peso: Int
-)
+){
+    init {
+        val c = this::class
+        c.memberProperties.forEach { prop ->
+            prop.annotations.forEach { annotation ->
+                when (annotation) {
+                    is NotBlank -> {
+                        val value = prop.getter.call(this) as? String
+                        if (value == null || value.isBlank()) {
+                            throw IllegalArgumentException("Campo '${prop.name}' não pode estar em branco.")
+                        }
+                    }
+                    is PositiveNumber -> {
+                        val value = prop.getter.call(this)
+                        if (value is Int && value <= 0) {
+                            throw IllegalArgumentException("Campo '${prop.name}' deve ser um número positivo.")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 // Definindo a classe para representar o FUC
 @XmlAdapter(FUCAdapter::class)
 data class FUC(
     @XmlAttribute
     @XmlName("codigo")
+    @NotBlank
     val codigo: String,
 
     @XmlElement
     @XmlName("nome")
+    @NotBlank
     val nome: String,
 
     @XmlElement
     @XmlName("ects")
+    @PositiveNumber
     val ects: Double,
 
     @XmlExclude
@@ -58,8 +98,38 @@ data class FUC(
 
     @XmlElement
     @XmlName("avaliacao")
+    @NotEmptyList
     val avaliacao: List<ComponenteAvaliacao>
-)
+) {
+    init {
+        val c = this::class
+        c.memberProperties.forEach { prop ->
+            prop.annotations.forEach { annotation ->
+                when (annotation) {
+                    is NotBlank -> {
+                        val value = prop.getter.call(this) as? String
+                        if (value == null || value.isBlank()) {
+                            throw IllegalArgumentException("Campo '${prop.name}' não pode estar em branco.")
+                        }
+                    }
+                    is PositiveNumber -> {
+                        val value = prop.getter.call(this)
+                        if (value is Double && value <= 0) {
+                            throw IllegalArgumentException("Campo '${prop.name}' deve ser um número positivo.")
+                        }
+                    }
+                    is NotEmptyList -> {
+                        val value = prop.getter.call(this)
+                        if (value is List<*> && value.isEmpty()) {
+                            throw IllegalArgumentException("Campo '${prop.name}' não pode ser uma lista vazia.")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 // Interface para transformar o texto inserido no XML
 interface XmlTransformer {
@@ -90,13 +160,13 @@ fun Any.toXml(indentLevel: Int = 0): String {
     val indent = "    ".repeat(indentLevel)
     val nestedIndent = "    ".repeat(indentLevel + 1)
     val clazz = this::class
-    val properties = clazz.memberProperties
+    val prop = clazz.memberProperties
 
     val xmlBuilder = StringBuilder()
 
     // Processa a tag de abertura com atributos
     xmlBuilder.append("$indent<${clazz.simpleName?.lowercase()}")
-    properties.forEach { prop ->
+    prop.forEach { prop ->
         if (prop.findAnnotation<XmlExclude>() == null) {
             val propName: String = prop.findAnnotation<XmlName>()?.name ?: prop.name
             val propValue: Any? = prop.getter.call(this)
@@ -116,7 +186,7 @@ fun Any.toXml(indentLevel: Int = 0): String {
     val elementOrder = listOf("nome", "ects", "avaliacao")
 
     elementOrder.forEach { elementName ->
-        properties.forEach { prop ->
+        prop.forEach { prop ->
             if (prop.findAnnotation<XmlExclude>() == null) {
                 val propName: String = prop.findAnnotation<XmlName>()?.name ?: prop.name
                 val propValue: Any? = prop.getter.call(this)

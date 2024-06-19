@@ -20,7 +20,7 @@ class Test {
         val fuc1 = FUC(
             codigo = "M4310",
             nome = "Programação Avançada",
-            ects = 6.0,
+            ects = 1.0,
             observacoes = "N/A",
             avaliacao = listOf(componente1, componente2)
         )
